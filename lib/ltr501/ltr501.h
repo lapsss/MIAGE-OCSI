@@ -27,7 +27,8 @@ unsigned char ReadLight(unsigned char reg){
 }
 void initLightSensor() {
     Wire.begin();
-    unsigned char id = ReadLight(0x86);
+  //  unsigned char id = 
+  ReadLight(0x86);
   WriteLight(0x80, 0x03);  //Active mode, 64k lux range
   WriteLight(0x81, 0x03);  //PS active mode, x1 GAIN
   WriteLight(0x82, 0x6B);  //LED 60Hz, 50% duty, 50mA

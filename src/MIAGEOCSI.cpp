@@ -17,26 +17,33 @@
 #include <MODMAG.h>
 #include <WebServer.h>
 #include <ltr501.h>
+#include <Wire.h>
+#include <BMP085.h>
+#include <MPU6050.h>
+#include <MODSMB380.h>
+#include <OneWireTemp.h>
+
+#define OUTPUT_READABLE_ACCELGYRO
 
 //////////////////////////
 // WiFi Configurations //
 //  TO CHANGE         //
 ///////////////////////
-const char WiFiSSID[] = "xxxxxxxxxxx"; // WiFi access point SSID
-const char WiFiPSK[] = "xxxxxxxxxxx"; // WiFi password - empty string for open access points
+const char WiFiSSID[] = "Livebox-538C"; // WiFi access point SSID
+const char WiFiPSK[] = "wQasWRJ9wxXfbkJKH9"; // WiFi password - empty string for open access points
 //////////////////////////////////////////////
 // ThingWorx server definitions            //
 //  TO CHANGE                             //
 ///////////////////////////////////////////
-String TWPlatformBaseURL = "xxxxxxxxxxx";
-String APP_KEY = "xxxxxxxxxxxx";
+String TWPlatformBaseURL = "http://miage.mecanaute.com:22222";
+String APP_KEY = "9f005f65-c537-4607-9f1f-b77d6ebed9b9";
 const int INTERVAL = 10; //refresh interval
 const char THING_PREFIX[] = "MIAGE.";
-const char CO2_PROPERTY[] = "CO2";                 //Thing property name
-const char TVOC_PROPERTY[] = "AirQuality";         //Thing property name
-const char HUMIDITY_PROPERTY[] = "Humidity";       //Thing property name
-const char TEMPERATURE_PROPERTY[] = "Temperature"; //Thing property name
-const char PRESSURE_PROPERTY[] = "Pressure";       //Thing property name
+const char CO2_PROPERTY[] = "WEATHER_CO2";                 //Thing property name
+const char TVOC_PROPERTY[] = "WEATHER_AirQuality";         //Thing property name
+const char HUMIDITY_PROPERTY[] = "WEATHER_Humidity";       //Thing property name
+const char TEMPERATURE_PROPERTY[] = "WEATHER_Temperature"; //Thing property name
+const char PRESSURE_PROPERTY[] = "WEATHER_Pressure";       //Thing property name
 ThingworxRest thingworx(TWPlatformBaseURL,APP_KEY);
 //////////////////////////////////////////////
 // Program execution settings              //
@@ -49,6 +56,22 @@ bool SENSOR_GPS=false;
 bool SENSOR_LCD=false;
 bool SENSOR_MAG=false;
 bool SENSOR_LIGHT=false;
+bool SENSOR_BARO=false;
+bool SENSOR_ACCEL=false;
+bool SENSOR_SMB380=false;
+bool SENSOR_TEMP=false;
+
+// Definitions for SMB380
+#define CLOCK 13    // SPI Clock
+#define CS    7     // Chip Select
+#define MOSI  11    // Master OUT - Slave IN line
+#define MISO  12    // Master IN  - Slave OUT line
+
+#define BBIT (PIND & B00000100)!=0		// Used to check if the button has been pressed
+#define BUTTONINPUT DDRD &= B11111011		// Init the Button
+#define YLED 9 
+#define GLED 13
+
 //////////////////////////////////////////////////////////
 // Pin Definitions - board specific for Adafruit board //
 ////////////////////////////////////////////////////////
@@ -68,14 +91,19 @@ const int ON = LOW;
 unsigned long start;
 HardwareSerial gpsSerial(Serial1);
 #define BAUDRATE 9600 // this is the default baudrate of the GPS module
+//GPS
 TinyGPSPlus gps;
-
-
+// Barometer 
+BMP085 bmp085 = BMP085(0x77);
 // Mod Magnetometer
 MODMAG modmag;
-
+// AccelGyro
+MPU6050 accelgyro;
+// SMB380
+MODSMB380 smb380(CLOCK, CS, MOSI, MISO);
+ 
 void sendMagData(String thingname){
-  unsigned char aflag;
+  //unsigned char aflag;
   //Serial.print("CHIP ID: ");
   //uint8_t chip_id = modmag.ReadSingleIadr(0x07, aflag);
   //Serial.println(chip_id, BIN);
@@ -96,6 +124,22 @@ void sendMagData(String thingname){
   thingworx.httpPutPropertry(thingname,"MAG_TEMP",String(modmag.getTemperature()));
 }
 
+// Send the Baro Data
+void sendBaroData(String thingname) {
+  bmp085.readMeasurement();
+  int temp =bmp085.getTemperature();
+  if (debug) Serial.print("TEMPERATURE: ");
+  if (debug) Serial.print(temp , 2);
+  thingworx.httpPutPropertry(thingname,"BARO_TEMP",String(temp));
+
+  int pressure =bmp085.getPressure();
+  if (debug) Serial.print("PRESSURE: ");
+  if (debug) Serial.print(pressure, 3);
+  if (debug) Serial.println("hPa");
+  if (debug) Serial.println();
+  thingworx.httpPutPropertry(thingname,"BARO_PRESSURE",String(pressure));
+}
+
 // Send the Light Data
 void sendLightData(String thingname) {
   int lux = getLighSensorMeasure();
@@ -104,6 +148,74 @@ void sendLightData(String thingname) {
   thingworx.httpPutPropertry(thingname,"LIGHT_LUX",String(lux));
   thingworx.httpPutPropertry(thingname,"LIGHT_DIST",String(distance));
   
+}
+
+
+// Send smb380 Data 
+void sendSMB380Data(String thingname){
+    smb380.updateData();
+    thingworx.httpPutPropertry(thingname,"SMB380_AX",String(smb380.getAccX()));
+    thingworx.httpPutPropertry(thingname,"SMB380_AY",String(smb380.getAccY()));
+    thingworx.httpPutPropertry(thingname,"SMB380_AZ",String(smb380.getAccZ())); 
+}
+// Send Temperature Data 
+void sendTempData(String thingname){
+    thingworx.httpPutPropertry(thingname,"TEMP_TEMP",String(readTemperature())); 
+}
+
+// Send the AccelGyro Data
+void sendAccelData(String thingname) {
+  int16_t ax, ay, az;
+  int16_t gx, gy, gz;
+  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+    // these methods (and a few others) are also available
+    //accelgyro.getAcceleration(&ax, &ay, &az);
+    //accelgyro.getRotation(&gx, &gy, &gz);
+
+        // display tab-separated accel/gyro x/y/z values
+        if (debug) {
+        Serial.print("a/g:\t");
+        Serial.print(ax); Serial.print("\t");
+        Serial.print(ay); Serial.print("\t");
+        Serial.print(az); Serial.print("\t");
+        Serial.print(gx); Serial.print("\t");
+        Serial.print(gy); Serial.print("\t");
+        Serial.println(gz);
+        }
+  
+  thingworx.httpPutPropertry(thingname,"ACCEL_AX",String(ax));
+  thingworx.httpPutPropertry(thingname,"ACCEL_AY",String(ay));
+  thingworx.httpPutPropertry(thingname,"ACCEL_AZ",String(az));
+  thingworx.httpPutPropertry(thingname,"ACCEL_GX",String(gx));
+  thingworx.httpPutPropertry(thingname,"ACCEL_GY",String(gy));
+  thingworx.httpPutPropertry(thingname,"ACCEL_GZ",String(gz));
+}
+
+void sendGPSData(String thingName) {
+          while (gpsSerial.available() > 0)
+          if (gps.encode(gpsSerial.read()))
+            gps.displayInfo();
+        thingworx.httpPutPropertry(thingName, "Location", "{\"latitude\":\"" + String(gps.location.lat()) + "\",\"longitude\":\"" + gps.location.lng() + "\",\"units\":\"WGS84\"}");
+
+}
+
+void sendWeatherData(String thingName) {
+  if (ccs.available()) {
+      if (!ccs.readData()) {
+        float co2 = ccs.geteCO2();
+        float tvoc = ccs.getTVOC();
+        float temp = bme.readTemperature();
+        float hum = bme.readHumidity();
+        float pres = bme.readPressure();
+        // publish properties :
+        thingworx.httpPutPropertry(thingName, String(CO2_PROPERTY), String(co2));
+        thingworx.httpPutPropertry(thingName, String(TVOC_PROPERTY), String(tvoc));
+        thingworx.httpPutPropertry(thingName, String(HUMIDITY_PROPERTY), String(hum));
+        thingworx.httpPutPropertry(thingName, String(TEMPERATURE_PROPERTY), String(temp));
+        thingworx.httpPutPropertry(thingName, String(PRESSURE_PROPERTY), String(pres));
+      }
+    }
 }
 
 /////////////////////
@@ -175,7 +287,10 @@ void initBoard() {
   SENSOR_LCD= thingworx.httpGetBoolPropertry(thingname,"SENSOR_LCD"); 
   SENSOR_WEATHER= thingworx.httpGetBoolPropertry(thingname,"SENSOR_WEATHER"); 
   SENSOR_LIGHT = thingworx.httpGetBoolPropertry(thingname,"SENSOR_LIGHT"); 
-
+  SENSOR_BARO =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_BARO"); 
+  SENSOR_ACCEL =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_ACCEL"); 
+  SENSOR_SMB380 = thingworx.httpGetBoolPropertry(thingname,"SENSOR_SMB380"); 
+  SENSOR_TEMP = thingworx.httpGetBoolPropertry(thingname,"SENSOR_TEMP"); 
 }
 
 // Init Weather Sensors (BME & CCS)
@@ -214,6 +329,16 @@ void initLCD() {
   LCDUpdate();
 }
 
+void initBaro(){
+  bmp085.loadConstants();
+  bmp085.setOSS(0);
+}
+
+
+void initAccel(){
+      accelgyro.initialize();
+}
+
 WebServer server(80);
 // Init WebServer for remote management
 void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
@@ -229,6 +354,11 @@ void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
     page += "    <p>SENSOR_LCD :" + String(SENSOR_LCD) + "</p>";
     page += "    <p>SENSOR_MAG :" + String(SENSOR_MAG) + "</p>";
     page += "    <p>SENSOR_WEATHER :" + String(SENSOR_WEATHER) + "</p>";
+    page += "    <p>SENSOR_LIGHT :" + String(SENSOR_LIGHT) + "</p>";
+    page += "    <p>SENSOR_BARO :" + String(SENSOR_BARO) + "</p>";
+    page += "    <p>SENSOR_SMB380 :" + String(SENSOR_SMB380) + "</p>";
+    page += "    <p>SENSOR_ACCEL :" + String(SENSOR_ACCEL) + "</p>";
+    page += "    <p>SENSOR_TEMP :" + String(SENSOR_TEMP) + "</p>";
     page += "</body>";
     page += "</html>";  // Fin page HTML
 
@@ -261,7 +391,10 @@ if (SENSOR_LCD)
   initLCD();
 if (SENSOR_LIGHT)
   initLightSensor();
-
+if (SENSOR_BARO)
+  initBaro();
+if (SENSOR_ACCEL)
+  initAccel();
 // Always init the WebServer
 initWebServer();
 }
@@ -281,28 +414,13 @@ void loop() {
      if (SENSOR_MAG) sendMagData(thingName);
      if (SENSOR_LCD) displayTest();
      if (SENSOR_LIGHT) sendLightData(thingName);
-     
-     if (SENSOR_WEATHER)
-    if (ccs.available()) {
-      if (!ccs.readData()) {
-        float co2 = ccs.geteCO2();
-        float tvoc = ccs.getTVOC();
-        float temp = bme.readTemperature();
-        float hum = bme.readHumidity();
-        float pres = bme.readPressure();
-        // publish properties :
-        thingworx.httpPutPropertry(thingName, String(CO2_PROPERTY), String(co2));
-        thingworx.httpPutPropertry(thingName, String(TVOC_PROPERTY), String(tvoc));
-        thingworx.httpPutPropertry(thingName, String(HUMIDITY_PROPERTY), String(hum));
-        thingworx.httpPutPropertry(thingName, String(TEMPERATURE_PROPERTY), String(temp));
-        thingworx.httpPutPropertry(thingName, String(PRESSURE_PROPERTY), String(pres));
-        // Get Location from the GPS :
-        while (gpsSerial.available() > 0)
-          if (gps.encode(gpsSerial.read()))
-            gps.displayInfo();
-        thingworx.httpPutPropertry(thingName, "Location", "{\"latitude\":\"" + String(gps.location.lat()) + "\",\"longitude\":\"" + gps.location.lng() + "\",\"units\":\"WGS84\"}");
-      }
-    }
+     if (SENSOR_BARO) sendBaroData(thingName);
+     if (SENSOR_ACCEL) sendAccelData(thingName);
+     if (SENSOR_SMB380) sendSMB380Data(thingName);
+     if (SENSOR_TEMP) sendTempData(thingName);
+     if (SENSOR_GPS) sendGPSData(thingName);
+     if (SENSOR_WEATHER) sendWeatherData(thingName);
+    
     i++;
     // Sends every INTERVAL mseconds
     delay(INTERVAL);
