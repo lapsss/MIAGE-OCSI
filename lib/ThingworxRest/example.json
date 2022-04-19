@@ -1,0 +1,22 @@
+{
+    "dataShape": {
+        "fieldDefinitions": {
+            "SENSOR_MAG": {
+                "name": "SENSOR_MAG",
+                "description": "",
+                "baseType": "BOOLEAN",
+                "ordinal": 2,
+                "aspects": {
+                    "defaultValue": false,
+                    "dataChangeType": "VALUE",
+                    "cacheTime": 0.0
+                }
+            }
+        }
+    },
+    "rows": [
+        {
+            "SENSOR_MAG": false
+        }
+    ]
+}
