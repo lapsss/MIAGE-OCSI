@@ -21,7 +21,7 @@
 	#define LCD_CS_HIGH()           digitalWrite (17, 1)
 	#define LCD_CS_LOW()            digitalWrite (17, 0)
 
-	#define LCD_RES_MAKE_OUT()      pinMode (16, OUTPUT)
+	#define LCD_RES_MAKE_OUT()      pinMode (16, OUTPUT) // 16
 	#define LCD_RES_HIGH()          digitalWrite (16, 1)
 	#define LCD_RES_LOW()           digitalWrite (16, 0)
 

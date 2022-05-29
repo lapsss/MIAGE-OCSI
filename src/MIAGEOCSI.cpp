@@ -25,6 +25,19 @@
 
 #define OUTPUT_READABLE_ACCELGYRO
 
+	#define RELAY1_MAKE_OUT()     pinMode (32, OUTPUT)
+	#define RELAY1_HIGH()         digitalWrite (32, 1)
+	#define RELAY1_LOW()          digitalWrite (32, 0)
+
+	#define RELAY2_MAKE_OUT()     pinMode (33, OUTPUT)
+	#define RELAY2_HIGH()         digitalWrite (33, 1)
+	#define RELAY2_LOW()          digitalWrite (33, 0)
+
+  #define BUTTON KEY_BUILTIN
+  #define BUTTON_MAKE_IN()     pinMode (BUTTON, INPUT)
+	//#define RELAY2_HIGH()         digitalWrite (33, 1)
+	//#define RELAY2_LOW()          digitalWrite (33, 0)
+
 //////////////////////////
 // WiFi Configurations //
 //  TO CHANGE         //
@@ -62,26 +75,22 @@ bool SENSOR_SMB380=false;
 bool SENSOR_TEMP=false;
 
 // Definitions for SMB380
-#define CLOCK 13    // SPI Clock
-#define CS    7     // Chip Select
-#define MOSI  11    // Master OUT - Slave IN line
-#define MISO  12    // Master IN  - Slave OUT line
+//#define CLOCK 14    // SPI Clock
+//#define CS    17     // Chip Select
+//#define MOSI  2    // Master OUT - Slave IN line
+//#define MISO  15    // Master IN  - Slave OUT line
 
-#define BBIT (PIND & B00000100)!=0		// Used to check if the button has been pressed
-#define BUTTONINPUT DDRD &= B11111011		// Init the Button
-#define YLED 9 
-#define GLED 13
 
 //////////////////////////////////////////////////////////
 // Pin Definitions - board specific for Adafruit board //
 ////////////////////////////////////////////////////////
 Adafruit_CCS811 ccs;
 Adafruit_BME280 bme; // I2C
-const int RED_LED = 0; // Thing's onboard, red LED -
-const int BLUE_LED = 2; // Thing's onboard, blue LED
-const int ANALOG_PIN = 0; // The only analog pin on the Thing
-const int OFF = HIGH;
-const int ON = LOW;
+//const int RED_LED = 0; // Thing's onboard, red LED -
+//const int BLUE_LED = 2; // Thing's onboard, blue LED
+//const int ANALOG_PIN = 0; // The only analog pin on the Thing
+//const int OFF = HIGH;
+//const int ON = LOW;
 // this will set as the Accept header for all the HTTP requests to the ThingWorx server
 // valid values are: application/json, text/xml, text/csv, text/html (default)
 
@@ -101,7 +110,7 @@ MODMAG modmag;
 MPU6050 accelgyro;
 // SMB380
 
-MODSMB380 smb380(CLOCK, CS, MOSI, MISO);
+MODSMB380 smb380(14, 40, 2, 15);
  
 void sendMagData(String thingname){
   //unsigned char aflag;
@@ -150,7 +159,12 @@ void sendLightData(String thingname) {
   thingworx.httpPutPropertry(thingname,"LIGHT_DIST",String(distance));
   
 }
-
+// LCD Display Management
+void lcd(String v, int row, int invert) {
+   char  buffer[20];
+   v.toCharArray(buffer,20);
+    LCDStr(row, (unsigned char *) buffer, invert);
+}
 
 // Send smb380 Data 
 void sendSMB380Data(String thingname){
@@ -158,6 +172,7 @@ void sendSMB380Data(String thingname){
     thingworx.httpPutPropertry(thingname,"SMB380_AX",String(smb380.getAccX()));
     thingworx.httpPutPropertry(thingname,"SMB380_AY",String(smb380.getAccY()));
     thingworx.httpPutPropertry(thingname,"SMB380_AZ",String(smb380.getAccZ())); 
+
 }
 // Send Temperature Data 
 void sendTempData(String thingname){
@@ -263,12 +278,12 @@ String getUniqueDeviceName() {
 
 // Init Weather Sensors (BME & CCS)
 void initWeather() {
-  if (!ccs.begin()) {
-    Serial.println("BME Sensor not Started");
-  }
+   if (!ccs.begin()) {
+     Serial.println("BME Sensor not Started");
+   }
   // Wait for the sensor to be ready
-  while (!ccs.available());
-   bme.begin();
+   while (!ccs.available());
+  bme.begin();
 }
 
   // Init GPS :
@@ -277,12 +292,7 @@ void initGps() {
   gps.configureUblox(settingsArray,gpsSerial);
 }
 
-// LCD Display Management
-void lcd(String v, int row, int invert) {
-   char  buffer[20];
-   v.toCharArray(buffer,20);
-    LCDStr(row, (unsigned char *) buffer, invert);
-}
+
 void displayValues() {
 //if (debug) Serial.println("LCD Display Test");
     lcd("MIAGE  -  OCSI",0,0);
@@ -317,7 +327,7 @@ void initLCD() {
 
 void initBaro(){
   bmp085.loadConstants();
-  bmp085.setOSS(0);
+  bmp085.setOSS(2);
 }
 
 
@@ -342,7 +352,7 @@ void ReloadConfiguration() {
   SENSOR_ACCEL =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_ACCEL"); 
   SENSOR_SMB380 = thingworx.httpGetBoolPropertry(thingname,"SENSOR_SMB380"); 
   SENSOR_TEMP = thingworx.httpGetBoolPropertry(thingname,"SENSOR_TEMP"); 
-  if (SENSOR_WEATHER)
+if (SENSOR_WEATHER)
   initWeather();
 if (SENSOR_GPS)
   initGps();
@@ -368,8 +378,22 @@ if (SENSOR_ACCEL)
     server.send(200, "text/html", page); 
 }
 
+void manageBase(String thingname) {
+   boolean relay1 = thingworx.httpGetBoolPropertry(thingname,"BASE_RELAY1"); 
+   boolean relay2 = thingworx.httpGetBoolPropertry(thingname,"BASE_RELAY2"); 
+   if (relay1) RELAY1_HIGH() ; 
+    else RELAY1_LOW();
+   if (relay2) RELAY2_HIGH() ; 
+    else RELAY2_LOW();
+  thingworx.httpPutPropertry(thingname,"BASE_BUTTON",String(digitalRead(BUTTON)));
+}
+
+
  // Init Debug Output to tty
 void initBoard() {
+  RELAY1_MAKE_OUT();
+  RELAY2_MAKE_OUT();
+  BUTTON_MAKE_IN();
   Serial.begin(9600);
   initLCD();
   lcd("Booting....",0,1);
@@ -378,10 +402,6 @@ void initBoard() {
   Serial.flush();
   Serial.println("Starting Firmware...");
   Serial.println("Done!");
-  //Serial.printf("MOSI : ");Serial.println(MOSI);
-  //Serial.printf("MISO : ");Serial.println(MISO);
-  //Serial.printf("SCK : ");Serial.println(SCK);
-  //Serial.printf("SS : ");Serial.println(SS);
 // Connect  Wifi  
   connectToWiFi(10);
   lcd("Connected :",0,1);
@@ -459,6 +479,7 @@ void loop() {
   while (WiFi.status() == WL_CONNECTED) { //confirm WiFi is connected before looping as long as WiFi is connected
   // Managing WebClient :
     server.handleClient();
+    manageBase(thingName);
     // Acquire Values from the sensors depending on configuration
      if (SENSOR_MAG) sendMagData(thingName);
      if (SENSOR_LCD) displayValues();
