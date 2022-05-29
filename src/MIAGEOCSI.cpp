@@ -13,7 +13,7 @@
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 #include <ThingworxRest.h>
-#include <lcd3310.h>
+#include <lcd3310_GPIO.h>
 #include <MODMAG.h>
 #include <WebServer.h>
 #include <ltr501.h>
@@ -53,7 +53,7 @@ bool debug=true;
 bool info=true;
 bool SENSOR_WEATHER=false; // Weather Sensors
 bool SENSOR_GPS=false;
-bool SENSOR_LCD=false;
+bool SENSOR_LCD=true;
 bool SENSOR_MAG=false;
 bool SENSOR_LIGHT=false;
 bool SENSOR_BARO=false;
@@ -100,6 +100,7 @@ MODMAG modmag;
 // AccelGyro
 MPU6050 accelgyro;
 // SMB380
+
 MODSMB380 smb380(CLOCK, CS, MOSI, MISO);
  
 void sendMagData(String thingname){
@@ -256,7 +257,7 @@ String getUniqueDeviceName() {
   String mac = WiFi.macAddress();
   mac.replace(":","");
   //Serial.println("DeviceID>" + mac);
-  return String(THING_PREFIX + mac);
+  return String(THING_PREFIX + mac.substring(6));
 }
 
 
@@ -267,7 +268,7 @@ void initWeather() {
   }
   // Wait for the sensor to be ready
   while (!ccs.available());
-  bme.begin();
+   bme.begin();
 }
 
   // Init GPS :
@@ -276,21 +277,42 @@ void initGps() {
   gps.configureUblox(settingsArray,gpsSerial);
 }
 
-void displayTest() {
-    //  LCDStr(0, (unsigned char *) "MIAGE", 0);
-    LCDTriangle(10,10,80,45,0,47);
-    LCDCircle(50,30,10);
-    LCDRectangle(20,20,40,40);
+// LCD Display Management
+void lcd(String v, int row, int invert) {
+   char  buffer[20];
+   v.toCharArray(buffer,20);
+    LCDStr(row, (unsigned char *) buffer, invert);
+}
+void displayValues() {
+//if (debug) Serial.println("LCD Display Test");
+    lcd("MIAGE  -  OCSI",0,0);
+    lcd(" " + getUniqueDeviceName(),1,0);
+    LCDRectangle(0,16,83,45);
+    // Fetch Values from Thingworx property : 
+    String l1 = thingworx.httpGetStringPropertry(getUniqueDeviceName(),"LCD_Line1");
+    String l2 = thingworx.httpGetStringPropertry(getUniqueDeviceName(),"LCD_Line2");
+    String l3 = thingworx.httpGetStringPropertry(getUniqueDeviceName(),"LCD_Line3");
+    lcd(l1,2,0);
+    lcd(l2,3,0);
+    lcd(l3,4,0);
+    //LCDTriangle(10,10,80,45,0,47);
+    //LCDCircle(50,30,10);
+    //LCDRectangle(20,20,40,40);
+    LCDRectangle(0,16,83,45);
     LCDUpdate();    
   }
 
 void initLCD() {
+  if (debug) Serial.println("Init LCD");
   pinMode(8, OUTPUT);
   digitalWrite(8, LOW);
   LCDInit();
   LCDContrast (0x60);
+  if (debug) Serial.println("Clear LCD");
   LCDClear();
   LCDUpdate();
+  if (debug) Serial.println("Init  LCD Done");
+
 }
 
 void initBaro(){
@@ -324,8 +346,6 @@ void ReloadConfiguration() {
   initWeather();
 if (SENSOR_GPS)
   initGps();
-if (SENSOR_LCD)
-  initLCD();
 if (SENSOR_LIGHT)
   initLightSensor();
 if (SENSOR_BARO)
@@ -348,22 +368,24 @@ if (SENSOR_ACCEL)
     server.send(200, "text/html", page); 
 }
 
-
-
  // Init Debug Output to tty
 void initBoard() {
   Serial.begin(9600);
+  initLCD();
+  lcd("Booting....",0,1);
   Serial.setDebugOutput(true);
   delay(2000);
   Serial.flush();
   Serial.println("Starting Firmware...");
   Serial.println("Done!");
-  Serial.printf("MOSI : ");Serial.println(MOSI);
-  Serial.printf("MISO : ");Serial.println(MISO);
-  Serial.printf("SCK : ");Serial.println(SCK);
-  Serial.printf("SS : ");Serial.println(SS);
+  //Serial.printf("MOSI : ");Serial.println(MOSI);
+  //Serial.printf("MISO : ");Serial.println(MISO);
+  //Serial.printf("SCK : ");Serial.println(SCK);
+  //Serial.printf("SS : ");Serial.println(SS);
 // Connect  Wifi  
   connectToWiFi(10);
+  lcd("Connected :",0,1);
+  lcd(WiFi.localIP().toString(),1,0);
   //Serial.println(RST);
   Serial.flush();
   // Fetch configuration from the Thingworx Server
@@ -439,7 +461,7 @@ void loop() {
     server.handleClient();
     // Acquire Values from the sensors depending on configuration
      if (SENSOR_MAG) sendMagData(thingName);
-     if (SENSOR_LCD) displayTest();
+     if (SENSOR_LCD) displayValues();
      if (SENSOR_LIGHT) sendLightData(thingName);
      if (SENSOR_BARO) sendBaroData(thingName);
      if (SENSOR_ACCEL) sendAccelData(thingName);

@@ -4,32 +4,30 @@
  *
  **************************************************************************/
 //#include <wirish.h>
-#include <Arduino.h>
-#include "lcd3310.h"
-
+#include "lcd3310_GPIO.h"
+#include "Arduino.h"
 /* TO IMPLEMENT YOUR VERSION OF THE DRIVER YOU'LL HAVE TO EDIT THIS SECTION ONLY */
 
 
-	#define LCD_MOSI_MAKE_OUT()     pinMode (16, OUTPUT)
-	#define LCD_MOSI_HIGH()         digitalWrite (16, 1)
-	#define LCD_MOSI_LOW()          digitalWrite (16, 0)
+	#define LCD_MOSI_MAKE_OUT()     pinMode (2, OUTPUT)
+	#define LCD_MOSI_HIGH()         digitalWrite (2, 1)
+	#define LCD_MOSI_LOW()          digitalWrite (2, 0)
 
-	#define LCD_SCK_MAKE_OUT()      pinMode (15, OUTPUT)
-	#define LCD_SCK_HIGH()          digitalWrite (15, 1)
-	#define LCD_SCK_LOW()           digitalWrite (15, 0)
+	#define LCD_SCK_MAKE_OUT()      pinMode (14, OUTPUT)
+	#define LCD_SCK_HIGH()          digitalWrite (14, 1)
+	#define LCD_SCK_LOW()           digitalWrite (14, 0)
 
-	#define LCD_CS_MAKE_OUT()       pinMode (13, OUTPUT)
-	#define LCD_CS_HIGH()           digitalWrite (13, 1)
-	#define LCD_CS_LOW()            digitalWrite (13, 0)
+	#define LCD_CS_MAKE_OUT()       pinMode (17, OUTPUT)
+	#define LCD_CS_HIGH()           digitalWrite (17, 1)
+	#define LCD_CS_LOW()            digitalWrite (17, 0)
 
-	#define LCD_RES_MAKE_OUT()      pinMode (3, OUTPUT)
-	#define LCD_RES_HIGH()          digitalWrite (3, 1)
-	#define LCD_RES_LOW()           digitalWrite (3, 0)
+	#define LCD_RES_MAKE_OUT()      pinMode (16, OUTPUT)
+	#define LCD_RES_HIGH()          digitalWrite (16, 1)
+	#define LCD_RES_LOW()           digitalWrite (16, 0)
 
-	#define LCD_CD_MAKE_OUT()       pinMode (2, OUTPUT)
-	#define LCD_CD_HIGH()           digitalWrite (2, 1)
-	#define LCD_CD_LOW()            digitalWrite (2, 0)
-
+	#define LCD_CD_MAKE_OUT()       pinMode (13, OUTPUT)
+	#define LCD_CD_HIGH()           digitalWrite (13, 1)
+	#define LCD_CD_LOW()            digitalWrite (13, 0)
 
 #define SEND_BYTE_SPI()                     \
         {                                   \
@@ -342,7 +340,7 @@ void LCDChrXY(unsigned char x, unsigned char y, unsigned char ch)
 void LCDPixelXY(unsigned char x, unsigned char y)
 {
     unsigned int index = 0;
-    //unsigned int i = 0;
+    unsigned int i = 0;
     
     // check for out off range
     if ((x > LCD_X_RES)||(x < 0)) return;

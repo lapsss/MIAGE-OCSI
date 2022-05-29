@@ -75,6 +75,17 @@ if (debug) Serial.println("Configuration " + property + " : " + output);
 return output;
 }
 
+String ThingworxRest::httpGetStringPropertry(String thingname, String property) {
+  // Fetch the property from the server :
+ String json =  httpGetPropertry(thingname,property);
+DynamicJsonDocument doc(1024);
+deserializeJson(doc, json);
+String output = doc["rows"][0][property];
+if (debug) Serial.println("Configuration " + property + " : " + output);
+return output;
+}
+
+
 ///////////////////////////////
 // make HTTP PUT to a specific Thing and Propertry on a ThingWorx server
 // thingName - Name of Thing on server to execute the PUT

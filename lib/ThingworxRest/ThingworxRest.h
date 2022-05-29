@@ -17,6 +17,7 @@ public:
   int httpPutPropertry(String thingName, String property, String value);
   String httpGetPropertry(String thingName, String property);
   bool httpGetBoolPropertry(String thingName, String property);
+  String httpGetStringPropertry(String thingName, String property);
   void setDebug(bool in);
   String TWPlatformBaseURL;
   String APP_KEY;
