@@ -29,8 +29,8 @@
 // WiFi Configurations //
 //  TO CHANGE         //
 ///////////////////////
-const char WiFiSSID[] = "Livebox-538C"; // WiFi access point SSID
-const char WiFiPSK[] = "wQasWRJ9wxXfbkJKH9"; // WiFi password - empty string for open access points
+const char WiFiSSID[] = "Jube"; // WiFi access point SSID
+const char WiFiPSK[] = "jube@simiane"; // WiFi password - empty string for open access points
 //////////////////////////////////////////////
 // ThingWorx server definitions            //
 //  TO CHANGE                             //
@@ -233,7 +233,7 @@ boolean connectToWiFi(int timeout) {
     tries++;
     Serial.printf(".");// print . for progress bar
     Serial.println(WiFi.status());
-    delay(2000);
+    delay(1000);
   }
   Serial.println("*"); //visual indication that board is connected or timeout
 
@@ -253,45 +253,12 @@ boolean connectToWiFi(int timeout) {
 //return name as a String
 ///////////////////////////////
 String getUniqueDeviceName() {
-
   String mac = WiFi.macAddress();
   mac.replace(":","");
-  Serial.println("DeviceID>" + mac);
+  //Serial.println("DeviceID>" + mac);
   return String(THING_PREFIX + mac);
 }
 
- // Init Debug Output to tty
-void initBoard() {
-  Serial.begin(9600);
-  Serial.setDebugOutput(true);
-  delay(2000);
-  Serial.flush();
-  Serial.println("Starting Firmware...");
-  Serial.println("Done!");
-  Serial.printf("MOSI : ");Serial.println(MOSI);
-  Serial.printf("MISO : ");Serial.println(MISO);
-  Serial.printf("SCK : ");Serial.println(SCK);
-  Serial.printf("SS : ");Serial.println(SS);
-// Connect  Wifi  
-  connectToWiFi(10);
-  //Serial.println(RST);
-  Serial.flush();
-  // Fetch configuration from the Thingworx Server
-  String thingname = getUniqueDeviceName();
-  // Fetch configuration properties from the server :
-  debug = thingworx.httpGetBoolPropertry(thingname,"DEBUG_DEVICE");
-  thingworx.setDebug(debug);
-  info = thingworx.httpGetBoolPropertry(thingname,"INFO_DEVICE");
-  SENSOR_MAG = thingworx.httpGetBoolPropertry(thingname,"SENSOR_MAG"); 
-  SENSOR_GPS= thingworx.httpGetBoolPropertry(thingname,"SENSOR_GPS"); 
-  SENSOR_LCD= thingworx.httpGetBoolPropertry(thingname,"SENSOR_LCD"); 
-  SENSOR_WEATHER= thingworx.httpGetBoolPropertry(thingname,"SENSOR_WEATHER"); 
-  SENSOR_LIGHT = thingworx.httpGetBoolPropertry(thingname,"SENSOR_LIGHT"); 
-  SENSOR_BARO =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_BARO"); 
-  SENSOR_ACCEL =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_ACCEL"); 
-  SENSOR_SMB380 = thingworx.httpGetBoolPropertry(thingname,"SENSOR_SMB380"); 
-  SENSOR_TEMP = thingworx.httpGetBoolPropertry(thingname,"SENSOR_TEMP"); 
-}
 
 // Init Weather Sensors (BME & CCS)
 void initWeather() {
@@ -309,15 +276,12 @@ void initGps() {
   gps.configureUblox(settingsArray,gpsSerial);
 }
 
-
-
 void displayTest() {
     //  LCDStr(0, (unsigned char *) "MIAGE", 0);
     LCDTriangle(10,10,80,45,0,47);
     LCDCircle(50,30,10);
     LCDRectangle(20,20,40,40);
-    LCDUpdate();
-    
+    LCDUpdate();    
   }
 
 void initLCD() {
@@ -341,49 +305,22 @@ void initAccel(){
 
 WebServer server(80);
 // Init WebServer for remote management
-void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
-  String page = "<!DOCTYPE html>";  // Début page HTML
-    page += "<head>";
-    page += "    <title>Serveur ESP32</title>";
-    page += "    <meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1' charset='UTF-8'/>";
-    page += "</head>";
-    page += "<body lang='fr'>";
-    page += "    <h1>MIAGE - OCSI : Server Web Embarqué</h1>";
-    page += "    <p>Device Information</p>";
-    page += "    <p>SENSOR_GPS :" + String(SENSOR_GPS) + "</p>";
-    page += "    <p>SENSOR_LCD :" + String(SENSOR_LCD) + "</p>";
-    page += "    <p>SENSOR_MAG :" + String(SENSOR_MAG) + "</p>";
-    page += "    <p>SENSOR_WEATHER :" + String(SENSOR_WEATHER) + "</p>";
-    page += "    <p>SENSOR_LIGHT :" + String(SENSOR_LIGHT) + "</p>";
-    page += "    <p>SENSOR_BARO :" + String(SENSOR_BARO) + "</p>";
-    page += "    <p>SENSOR_SMB380 :" + String(SENSOR_SMB380) + "</p>";
-    page += "    <p>SENSOR_ACCEL :" + String(SENSOR_ACCEL) + "</p>";
-    page += "    <p>SENSOR_TEMP :" + String(SENSOR_TEMP) + "</p>";
-    page += "</body>";
-    page += "</html>";  // Fin page HTML
-
-    server.send(200, "text/html", page);  // Envoie de la page HTML
-}
-
-void handleNotFound(){  // Page Not found
-  server.send(404, "text/plain","404: Page Introuvable");
-}
-
-void initWebServer() {
-  server.on("/", handleRoot);  // Chargement de la page d'accueil
-  server.onNotFound(handleNotFound);  // Chargement de la page "Not found"
-  server.begin();  // Initialisation du serveur web
-}
-
-
-/////////////////////////////////////////////////
-// Board Setup function (launched at startup) //
-///////////////////////////////////////////////
-void setup() {
-  // Initialize Board
-  initBoard();
-  // Init Devices based on Configuration
-if (SENSOR_WEATHER)
+void ReloadConfiguration() {
+  String thingname = getUniqueDeviceName();
+  // Fetch configuration properties from the server :
+  debug = thingworx.httpGetBoolPropertry(thingname,"DEBUG_DEVICE");
+  thingworx.setDebug(debug);
+  info = thingworx.httpGetBoolPropertry(thingname,"INFO_DEVICE");
+  SENSOR_MAG = thingworx.httpGetBoolPropertry(thingname,"SENSOR_MAG"); 
+  SENSOR_GPS= thingworx.httpGetBoolPropertry(thingname,"SENSOR_GPS"); 
+  SENSOR_LCD= thingworx.httpGetBoolPropertry(thingname,"SENSOR_LCD"); 
+  SENSOR_WEATHER= thingworx.httpGetBoolPropertry(thingname,"SENSOR_WEATHER"); 
+  SENSOR_LIGHT = thingworx.httpGetBoolPropertry(thingname,"SENSOR_LIGHT"); 
+  SENSOR_BARO =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_BARO"); 
+  SENSOR_ACCEL =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_ACCEL"); 
+  SENSOR_SMB380 = thingworx.httpGetBoolPropertry(thingname,"SENSOR_SMB380"); 
+  SENSOR_TEMP = thingworx.httpGetBoolPropertry(thingname,"SENSOR_TEMP"); 
+  if (SENSOR_WEATHER)
   initWeather();
 if (SENSOR_GPS)
   initGps();
@@ -395,8 +332,98 @@ if (SENSOR_BARO)
   initBaro();
 if (SENSOR_ACCEL)
   initAccel();
+
+ String page = "<!DOCTYPE html>";  // Début page HTML
+    page += "<head>";
+    page += "    <title>MIAGE OCSI - Device Reconfiguration</title>";
+    page += "    <meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1' charset='UTF-8'/>";
+    page += "</head>";
+    page += "<body lang='fr'>";
+    page += "    <h1>MIAGE - OCSI : Device Reconfiguration complete</h1>";
+    page += "    <h2>Thing Name :" + getUniqueDeviceName() +"</h2>";
+    page += "    <a href='/'>Continue</a>";
+    page += "</body>";
+    page += "</html>";  // Fin page HTML
+
+    server.send(200, "text/html", page); 
+}
+
+
+
+ // Init Debug Output to tty
+void initBoard() {
+  Serial.begin(9600);
+  Serial.setDebugOutput(true);
+  delay(2000);
+  Serial.flush();
+  Serial.println("Starting Firmware...");
+  Serial.println("Done!");
+  Serial.printf("MOSI : ");Serial.println(MOSI);
+  Serial.printf("MISO : ");Serial.println(MISO);
+  Serial.printf("SCK : ");Serial.println(SCK);
+  Serial.printf("SS : ");Serial.println(SS);
+// Connect  Wifi  
+  connectToWiFi(10);
+  //Serial.println(RST);
+  Serial.flush();
+  // Fetch configuration from the Thingworx Server
+  ReloadConfiguration();
+}
+
+void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
+  String page = "<!DOCTYPE html>";  // Début page HTML
+    page += "<head>";
+    page += "    <title>MIAGE OCSI - Device Information</title>";
+    page += "    <meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1' charset='UTF-8'/>";
+    page += "</head>";
+    page += "<body lang='fr'>";
+    page += "    <h1>MIAGE - OCSI : Server Web Embarqué</h1>";
+    page += "    <h2>Thing Name :" + getUniqueDeviceName() +"</h2>";
+    page += "    <p>Device Information</p>";
+    page += "    <p>Log DEBUG       :" + String(debug) + "</p>";
+    page += "    <p>Log INFO        :" + String(info) + "</p>";  
+    page += "    <p>SENSOR_GPS      :" + String(SENSOR_GPS) + "</p>";
+    page += "    <p>SENSOR_LCD      :" + String(SENSOR_LCD) + "</p>";
+    page += "    <p>SENSOR_MAG      :" + String(SENSOR_MAG) + "</p>";
+    page += "    <p>SENSOR_WEATHER  :" + String(SENSOR_WEATHER) + "</p>";
+    page += "    <p>SENSOR_LIGHT    :" + String(SENSOR_LIGHT) + "</p>";
+    page += "    <p>SENSOR_BARO     :" + String(SENSOR_BARO) + "</p>";
+    page += "    <p>SENSOR_SMB380   :" + String(SENSOR_SMB380) + "</p>";
+    page += "    <p>SENSOR_ACCEL    :" + String(SENSOR_ACCEL) + "</p>";
+    page += "    <p>SENSOR_TEMP     :" + String(SENSOR_TEMP) + "</p>";
+    page += "    <a href='/reconf'>Reload Confiugration</a>";
+    page += "    <a href='/reset'>Reset Board</a>";
+    page += "</body>";
+    page += "</html>";  // Fin page HTML
+
+    server.send(200, "text/html", page);  // Envoie de la page HTML
+}
+
+void handleNotFound(){  // Page Not found
+  server.send(404, "text/plain","404: Page Introuvable");
+}
+void RebootDevice() {
+  // Reboot board :
+
+}
+
+void initWebServer() {
+  server.on("/", handleRoot);  // Chargement de la page d'accueil
+  server.on("/reconf", ReloadConfiguration);  // Chargement de la page d'accueil
+  server.on("/reboot", RebootDevice);
+  server.onNotFound(handleNotFound);  // Chargement de la page "Not found"
+  server.begin();  // Initialisation du serveur web
+}
+
+
+/////////////////////////////////////////////////
+// Board Setup function (launched at startup) //
+///////////////////////////////////////////////
+void setup() {
+  // Initialize Board
+  initBoard();
 // Always init the WebServer
-initWebServer();
+  initWebServer();
 }
 
 
@@ -409,7 +436,7 @@ void loop() {
   int i = 12;
   while (WiFi.status() == WL_CONNECTED) { //confirm WiFi is connected before looping as long as WiFi is connected
   // Managing WebClient :
-  server.handleClient();
+    server.handleClient();
     // Acquire Values from the sensors depending on configuration
      if (SENSOR_MAG) sendMagData(thingName);
      if (SENSOR_LCD) displayTest();
@@ -420,7 +447,6 @@ void loop() {
      if (SENSOR_TEMP) sendTempData(thingName);
      if (SENSOR_GPS) sendGPSData(thingName);
      if (SENSOR_WEATHER) sendWeatherData(thingName);
-    
     i++;
     // Sends every INTERVAL mseconds
     delay(INTERVAL);
