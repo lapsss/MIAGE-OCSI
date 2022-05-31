@@ -404,7 +404,7 @@ void initBoard() {
   Serial.println("Done!");
 // Connect  Wifi  
   connectToWiFi(10);
-  lcd("Connected :",0,1);
+  lcd(getUniqueDeviceName(),0,1);
   lcd(WiFi.localIP().toString(),1,0);
   //Serial.println(RST);
   Serial.flush();

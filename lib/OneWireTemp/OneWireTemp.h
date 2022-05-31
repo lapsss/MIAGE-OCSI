@@ -6,7 +6,7 @@
 #include "Arduino.h"
 #include "OneWire.h"
 // OneWire temp
-OneWire  ds(10); // on PIN 10
+OneWire  ds(35); // on PIN 10
 int readTemperature(void) {
   byte i;
   byte present = 0;

@@ -21,13 +21,13 @@
 	#define LCD_CS_HIGH()           digitalWrite (17, 1)
 	#define LCD_CS_LOW()            digitalWrite (17, 0)
 
-	#define LCD_RES_MAKE_OUT()      pinMode (3, OUTPUT) // 16 but modded to 3 with new pinout
-	#define LCD_RES_HIGH()          digitalWrite (3, 1)
-	#define LCD_RES_LOW()           digitalWrite (3, 0)
+	#define LCD_RES_MAKE_OUT()      pinMode (16, OUTPUT) // TO REPLACE with 16 but modded to 3 with new pinout
+	#define LCD_RES_HIGH()          digitalWrite (16, 1)
+	#define LCD_RES_LOW()           digitalWrite (16, 0)
 
-	#define LCD_CD_MAKE_OUT()       pinMode (5, OUTPUT) //13 but modded to 5 with new layout
-	#define LCD_CD_HIGH()           digitalWrite (5, 1)
-	#define LCD_CD_LOW()            digitalWrite (5, 0)
+	#define LCD_CD_MAKE_OUT()       pinMode (13, OUTPUT) //TO REPLACE with 13 but modded to 5 with new layout
+	#define LCD_CD_HIGH()           digitalWrite (13, 1)
+	#define LCD_CD_LOW()            digitalWrite (13, 0)
 
 #define SEND_BYTE_SPI()                     \
         {                                   \
