@@ -22,6 +22,8 @@
 #include <MPU6050.h>
 #include <MODSMB380.h>
 #include <OneWireTemp.h>
+#include <ESPAsyncWebServer.h>
+#include <EEPROM.h>
 
 #define OUTPUT_READABLE_ACCELGYRO
 
@@ -42,8 +44,13 @@
 // WiFi Configurations //
 //  TO CHANGE         //
 ///////////////////////
-const char WiFiSSID[] = "Jube"; // WiFi access point SSID
-const char WiFiPSK[] = "jube@simiane"; // WiFi password - empty string for open access points
+ char WiFiSSID[] = "SSIDDEFAULTVALUESSIDDEFAULTVALUE"; // WiFi access point SSID
+ char WiFiPSK[] = "PWDDEFAULTVALUEPWDDEFAULTVALUEPWD"; // WiFi password - empty string for open access points
+String SSIDToStore="";
+String PWDToStore="";
+String HttpHeader = String(16);
+
+
 //////////////////////////////////////////////
 // ThingWorx server definitions            //
 //  TO CHANGE                             //
@@ -112,6 +119,52 @@ MPU6050 accelgyro;
 
 MODSMB380 smb380(14, 40, 2, 15);
  
+// EEPROM Utilities
+
+/*
+Writes the value to the EEPROM :
+BIT 1 = String size
+then write bit per bit
+*/
+void writeStringToEEPROM(String value,int address)
+{
+  // write to the eeprom the size of the String :
+  EEPROM.write(address,value.length()); 
+  // Write char by char :
+  for (int i=1;i<=value.length();i++)
+  {
+    int writeAdd = address+i;
+    EEPROM.write(writeAdd,value[i-1]);
+
+  }
+ EEPROM.commit();
+}
+
+
+/*
+Read String from EEProm Adress :
+BIT 1 : String size.
+Reads the number of bytes (max 255)
+*/
+String readStringFromEEPROM(int address)
+{
+  String result ="";
+  // Read the String size :
+  int size = EEPROM.read(address);
+  if (size > 255) size = 255;
+  for (int i=1;i<=size; i++)
+  {
+    // Read the value : 
+    int charencoded = EEPROM.read(address + i);
+    char decoded = charencoded;
+    result += decoded;
+  }
+return result;
+}
+
+
+
+
 void sendMagData(String thingname){
   //unsigned char aflag;
   //Serial.print("CHIP ID: ");
@@ -234,22 +287,35 @@ void sendWeatherData(String thingName) {
     }
 }
 
+
+
+
+
+
 /////////////////////
 // WiFi connection. Checks if connection has been made once per second until timeout is reached
 // returns TRUE if successful or FALSE if timed out
 /////////////////////
-boolean connectToWiFi(int timeout) {
+boolean connectToWiFi(int timeout, String epromSSID, String epromPWD) {
+  // Fetching values from EEPROM and initializing the char arrays 
+  char epromSSIDc[epromSSID.length()+1];
+  char epromPWDc[epromPWD.length()+1];
+  if (epromSSID != "") {
+    // Convert the values : 
+    epromSSID.toCharArray(epromSSIDc,epromSSID.length()+1);
+    epromPWD.toCharArray(epromPWDc,epromPWD.length()+1);
+  }
+  
+  Serial.println("Connecting to: (" + String(epromSSIDc) +") With (" + String(epromPWDc)+")");
 
-  Serial.println("Connecting to: " + String(WiFiSSID));
-  WiFi.begin(WiFiSSID, WiFiPSK);
-
+  WiFi.begin(epromSSIDc, epromPWDc);
   // loop while WiFi is not connected waiting one second between checks
   uint8_t tries = 0; // counter for how many times we have checked
   while ((WiFi.status() != WL_CONNECTED) && (tries < timeout) ) { // stop checking if connection has been made OR we have timed out
     tries++;
     Serial.printf(".");// print . for progress bar
-    Serial.println(WiFi.status());
-    delay(1000);
+    //Serial.println(WiFi.status());
+    delay(2000);
   }
   Serial.println("*"); //visual indication that board is connected or timeout
 
@@ -275,6 +341,18 @@ String getUniqueDeviceName() {
   return String(THING_PREFIX + mac.substring(6));
 }
 
+// Create the AP for Wifi connection
+boolean createAccessPoint(int timeout){
+
+   char  buffer[20];
+   String apname = getUniqueDeviceName();
+    apname.toCharArray(buffer,20);
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(buffer,"MIAGEOCSI");
+    Serial.print("[+] AP Created with IP Gateway ");
+    Serial.println(WiFi.softAPIP());
+ return WiFi.isConnected();
+}
 
 // Init Weather Sensors (BME & CCS)
 void initWeather() {
@@ -335,9 +413,38 @@ void initAccel(){
       accelgyro.initialize();
 }
 
-WebServer server(80);
-// Init WebServer for remote management
+//WebServer server(80);
+AsyncWebServer server(80);
+
+
 void ReloadConfiguration() {
+  String thingname = getUniqueDeviceName();
+  // Fetch configuration properties from the server :
+  debug = thingworx.httpGetBoolPropertry(thingname,"DEBUG_DEVICE");
+  thingworx.setDebug(debug);
+  info = thingworx.httpGetBoolPropertry(thingname,"INFO_DEVICE");
+  SENSOR_MAG = thingworx.httpGetBoolPropertry(thingname,"SENSOR_MAG"); 
+  SENSOR_GPS= thingworx.httpGetBoolPropertry(thingname,"SENSOR_GPS"); 
+  SENSOR_LCD= thingworx.httpGetBoolPropertry(thingname,"SENSOR_LCD"); 
+  SENSOR_WEATHER= thingworx.httpGetBoolPropertry(thingname,"SENSOR_WEATHER"); 
+  SENSOR_LIGHT = thingworx.httpGetBoolPropertry(thingname,"SENSOR_LIGHT"); 
+  SENSOR_BARO =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_BARO"); 
+  SENSOR_ACCEL =  thingworx.httpGetBoolPropertry(thingname,"SENSOR_ACCEL"); 
+  SENSOR_SMB380 = thingworx.httpGetBoolPropertry(thingname,"SENSOR_SMB380"); 
+  SENSOR_TEMP = thingworx.httpGetBoolPropertry(thingname,"SENSOR_TEMP"); 
+if (SENSOR_WEATHER)
+  initWeather();
+if (SENSOR_GPS)
+  initGps();
+if (SENSOR_LIGHT)
+  initLightSensor();
+if (SENSOR_BARO)
+  initBaro();
+if (SENSOR_ACCEL)
+  initAccel();
+}
+// Init WebServer for remote management
+void ReloadConfigurationFromWeb(AsyncWebServerRequest *request) {
   String thingname = getUniqueDeviceName();
   // Fetch configuration properties from the server :
   debug = thingworx.httpGetBoolPropertry(thingname,"DEBUG_DEVICE");
@@ -374,8 +481,11 @@ if (SENSOR_ACCEL)
     page += "    <a href='/'>Continue</a>";
     page += "</body>";
     page += "</html>";  // Fin page HTML
-
-    server.send(200, "text/html", page); 
+    char  pagec[2500];
+    page.toCharArray(pagec,2500);
+    request->send_P(200, "text/html", pagec); 
+    
+  //  request->send_P(page);
 }
 
 void manageBase(String thingname) {
@@ -391,10 +501,17 @@ void manageBase(String thingname) {
 
  // Init Debug Output to tty
 void initBoard() {
+  EEPROM.begin(99);
+  String epromSSID, epromPwd;
+  Serial.begin(9600);
+  Serial.println("Fetched Network configuration from EEPROM : ");
+  epromSSID = readStringFromEEPROM(0);
+  epromPwd = readStringFromEEPROM(50);
+  Serial.println(epromSSID);
+  Serial.println(epromPwd);
   RELAY1_MAKE_OUT();
   RELAY2_MAKE_OUT();
   BUTTON_MAKE_IN();
-  Serial.begin(9600);
   initLCD();
   lcd("Booting....",0,1);
   Serial.setDebugOutput(true);
@@ -403,7 +520,10 @@ void initBoard() {
   Serial.println("Starting Firmware...");
   Serial.println("Done!");
 // Connect  Wifi  
-  connectToWiFi(10);
+  boolean connected = connectToWiFi(10,epromSSID,epromPwd);
+  if (!connected) {
+    createAccessPoint(10);
+  }
   lcd(getUniqueDeviceName(),0,1);
   lcd(WiFi.localIP().toString(),1,0);
   //Serial.println(RST);
@@ -412,7 +532,7 @@ void initBoard() {
   ReloadConfiguration();
 }
 
-void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
+void handleRoot(AsyncWebServerRequest *request){  // Page d'accueil La page HTML est mise dans le String page
   String page = "<!DOCTYPE html>";  // Début page HTML
     page += "<head>";
     page += "    <title>MIAGE OCSI - Device Information</title>";
@@ -435,26 +555,57 @@ void handleRoot(){  // Page d'accueil La page HTML est mise dans le String page
     page += "    <p>SENSOR_TEMP     :" + String(SENSOR_TEMP) + "</p>";
     page += "    <a href='/reconf'>Reload Confiugration</a>";
     page += "    <a href='/reset'>Reset Board</a>";
+    page += "<h1> WIFI Reconfiguration </H1>";
+    page += "<form action='/get'>";
+    page += "SSID : <input type='text'name='ssid'> </input>";
+    page += "PWD  : <input type='text'name='pwd'> </input>";
+    page += "<input type=submit value=submit></form>";
     page += "</body>";
     page += "</html>";  // Fin page HTML
 
-    server.send(200, "text/html", page);  // Envoie de la page HTML
+    char  pagec[2500] ;
+     page.toCharArray(pagec,2500);
+    request->send_P(200, "text/html", pagec);  // Envoie de la page HTML
 }
 
-void handleNotFound(){  // Page Not found
-  server.send(404, "text/plain","404: Page Introuvable");
+void handleNotFound(AsyncWebServerRequest *request){  // Page Not found
+  request->send_P(404, "text/plain","404: Page Introuvable");
 }
-void RebootDevice() {
+void RebootDevice(AsyncWebServerRequest *request) {
   // Reboot board :
 
 }
 
 void initWebServer() {
-  server.on("/", handleRoot);  // Chargement de la page d'accueil
-  server.on("/reconf", ReloadConfiguration);  // Chargement de la page d'accueil
-  server.on("/reboot", RebootDevice);
+  server.on("/",HTTP_GET, handleRoot);  // Chargement de la page d'accueil
+  server.on("/reconf",HTTP_GET, ReloadConfigurationFromWeb);  // Chargement de la page d'accueil
+  server.on("/reboot",HTTP_GET, RebootDevice);
   server.onNotFound(handleNotFound);  // Chargement de la page "Not found"
-  server.begin();  // Initialisation du serveur web
+   server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String inputMessage;
+    String inputParam;
+    // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
+    if (request->hasParam("ssid")) {
+      SSIDToStore = request->getParam("ssid")->value();
+      //SSID = PARAM_INPUT_1;
+    }
+    // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
+    if (request->hasParam("pwd")) {
+      PWDToStore = request->getParam("pwd")->value();
+      //inputParam = PARAM_INPUT_2;
+    }
+    Serial.println("Config Stored : ");
+    Serial.println(SSIDToStore);
+    Serial.println(PWDToStore);
+    writeStringToEEPROM(SSIDToStore,0);
+    writeStringToEEPROM(PWDToStore,50);
+    // Store the new NetConfig
+    
+  request->send_P(200,"text/html","Configuration Updated");
+
+   });
+  // Initialisation du serveur web
+  server.begin();
 }
 
 
@@ -462,11 +613,13 @@ void initWebServer() {
 // Board Setup function (launched at startup) //
 ///////////////////////////////////////////////
 void setup() {
+    HttpHeader="";
   // Initialize Board
   initBoard();
 // Always init the WebServer
   initWebServer();
 }
+// Reads the http input : 
 
 
 
@@ -474,11 +627,12 @@ void setup() {
 // Main Program Loop //
 //////////////////////
 void loop() {
+  
   String thingName = getUniqueDeviceName(); //unique name for this Thing so many work on one ThingWorx server
   int i = 12;
   while (WiFi.status() == WL_CONNECTED) { //confirm WiFi is connected before looping as long as WiFi is connected
   // Managing WebClient :
-    server.handleClient();
+   // server.handleClient();
     manageBase(thingName);
     // Acquire Values from the sensors depending on configuration
      if (SENSOR_MAG) sendMagData(thingName);
@@ -494,7 +648,15 @@ void loop() {
     // Sends every INTERVAL mseconds
     delay(INTERVAL);
   }// end WiFi connected while loop
-  Serial.printf("****Wifi connection dropped****\n");
+
+  if (WiFi.status() != WL_CONNECTED) {
+  // booting up in AP Mode : no Wifi Availlable.
+  lcd("   AP MODE    ",0,1);
+  lcd(getUniqueDeviceName(),1,0);
+  lcd("MIAGEOCSI",2,0);
+  lcd(WiFi.softAPIP().toString(),3,0);
+  //    server.handleClient();
+  }
   WiFi.disconnect(true);
   
 }
