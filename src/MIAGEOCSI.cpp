@@ -229,7 +229,9 @@ void sendSMB380Data(String thingname){
 }
 // Send Temperature Data 
 void sendTempData(String thingname){
-    thingworx.httpPutPropertry(thingname,"TEMP_TEMP",String(readTemperature())); 
+  // Generate random Temp 
+  float rndTemp= random(19,31);
+    thingworx.httpPutPropertry(thingname,"TEMP_TEMP",String(rndTemp)); 
 }
 
 // Send the AccelGyro Data
